@@ -1,0 +1,7 @@
+[package]
+name = "hickory-dns-test"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+hickory-resolver = { version = "0.24", features = ["dns-over-rustls", "dnssec-ring"] }
