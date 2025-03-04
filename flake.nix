@@ -3,7 +3,6 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
     rust-overlay.url = "github:oxalica/rust-overlay";
   };
 
@@ -11,33 +10,42 @@
     {
       self,
       nixpkgs,
-      flake-utils,
       rust-overlay,
       ...
     }:
-    flake-utils.lib.eachDefaultSystem (
-      system:
-      let
-        # Import nixpkgs with rust overlay
-        pkgs = import nixpkgs {
-          inherit system;
-          overlays = [ rust-overlay.overlays.default ];
-        };
+    let
+      # Define systems we want to support
+      supportedSystems = [
+        "x86_64-linux"
+        "aarch64-linux"
+      ];
 
-        # Create a static Rust environment with musl target
-        rustStatic = pkgs.rust-bin.stable.latest.default.override {
-          targets = [ "x86_64-unknown-linux-musl" ];
-          extensions = [ "rust-src" ];
-        };
+      # Helper function to generate outputs for each system
+      forAllSystems = fn: nixpkgs.lib.genAttrs supportedSystems (system: fn system);
 
-        # We'll generate a static binary using rust + pkgsStatic
-        staticRustPlatform = pkgs.makeRustPlatform {
-          cargo = rustStatic;
-          rustc = rustStatic;
-        };
-      in
-      {
-        packages.default = staticRustPlatform.buildRustPackage {
+      # Build the package for the given system
+      packageFor =
+        system:
+        let
+          # Import nixpkgs with rust overlay
+          pkgs = import nixpkgs {
+            inherit system;
+            overlays = [ rust-overlay.overlays.default ];
+          };
+
+          # Create a static Rust environment with musl target
+          rustStatic = pkgs.rust-bin.stable.latest.default.override {
+            targets = [ "x86_64-unknown-linux-musl" ];
+            extensions = [ "rust-src" ];
+          };
+
+          # We'll generate a static binary using rust + pkgsStatic
+          staticRustPlatform = pkgs.makeRustPlatform {
+            cargo = rustStatic;
+            rustc = rustStatic;
+          };
+        in
+        staticRustPlatform.buildRustPackage {
           pname = "hickory-dns-test";
           version = "0.1.0";
           src = ./.;
@@ -52,8 +60,6 @@
 
           # Flags to ensure static linking
           RUSTFLAGS = "-C target-feature=+crt-static -C link-self-contained=yes -C link-arg=-static";
-
-          # No need to specify linker path as we'll use the rust environment's linker
 
           # Provide necessary build tools
           nativeBuildInputs = with pkgs; [
@@ -85,10 +91,18 @@
               4. Built as a static-pie ELF executable using musl libc
             '';
             mainProgram = "hickory-dns-test";
-            license = licenses.gpl;
+            license = licenses.gpl3;
             platforms = platforms.linux;
           };
         };
-      }
-    );
+    in
+    {
+      # Generate packages for all systems
+      packages = forAllSystems (system: {
+        default = packageFor system;
+      });
+
+      # Default package for backwards compatibility with older Nix versions
+      defaultPackage = forAllSystems (system: self.packages.${system}.default);
+    };
 }
