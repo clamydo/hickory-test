@@ -1,20 +1,18 @@
-use hickory_resolver::{
-    config::{ResolverConfig, ResolverOpts},
-    TokioAsyncResolver,
-};
+use hickory_resolver::{TokioAsyncResolver, system_conf::read_system_conf};
+
 // Include the SHA1 hashes that were calculated at build time
 const COMBINED_HASH: &str = include_str!(concat!(env!("OUT_DIR"), "/combined_hash.txt"));
 
 #[tokio::main]
 async fn main() {
-    // Create default ResolverConfig
-    let config = ResolverConfig::default();
     // Print the SHA1 hashes
     println!("Source file SHA1 hashes:");
     println!("  Combined (XOR): {}", COMBINED_HASH);
 
+    // Create default ResolverConfig and ResolverOpts
+    let (config, mut opts) = read_system_conf().unwrap();
+
     // Configure options to force UDP
-    let mut opts = ResolverOpts::default();
     opts.try_tcp_on_error = false;
 
     // Create resolver with custom config and options
