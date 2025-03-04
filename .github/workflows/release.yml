@@ -3,52 +3,56 @@ name: "Release"
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 jobs:
   release:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      
+
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v9
-      
+        # with:
+        #   extra-conf: |
+        #     accept-flake-config = true
+        #     substituters = https://cache.garnix.io
+        #     trusted-public-keys = cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g=
+
       - name: Setup Nix cache
         uses: DeterminateSystems/magic-nix-cache-action@v2
-      
+
       - name: Build flake
         run: nix build
-      
+
       - name: Verify static binary
         run: |
           ldd ./result/bin/hickory-dns-test || echo "Static binary verified!"
           file ./result/bin/hickory-dns-test
-      
+
       - name: Rename binary for release
         run: |
           mkdir -p release
           cp ./result/bin/hickory-dns-test release/hickory-dns-test-x86_64-linux
-      
+
+      - name: Install GitHub CLI
+        run: |
+          (type -p wget >/dev/null || (sudo apt update && sudo apt-get install wget -y)) \
+            && sudo mkdir -p -m 755 /etc/apt/keyrings \
+                  && out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+                  && cat $out | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \
+            && sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+            && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+            && sudo apt update \
+            && sudo apt install gh -y
+          sudo apt update
+          sudo apt install gh
+
       - name: Create GitHub Release
-        id: create_release
-        uses: actions/create-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref_name }}
-          draft: false
-          prerelease: false
-      
-      - name: Upload binary to release
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./release/hickory-dns-test-x86_64-linux
-          asset_name: hickory-dns-test-x86_64-linux
-          asset_content_type: application/octet-stream
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME=${GITHUB_REF##*/}
+          gh release create "$TAG_NAME" ./release/hickory-dns-test-x86_64-linux --title "Release $TAG_NAME" --notes "Release $TAG_NAME"
