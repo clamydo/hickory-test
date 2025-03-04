@@ -1,8 +1,11 @@
 [package]
 name = "hickory-dns-test"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 hickory-resolver = { version = "0.24", features = ["dns-over-rustls", "dnssec-ring"] }
 tokio = { version = "1", features = ["full"] }
+
+[build-dependencies]
+sha1 = "0.10.6"
