@@ -8,7 +8,12 @@ devenv.local.nix
 # pre-commit
 .pre-commit-config.yaml
 
+# Nix
+result
+result-*
 
 # Added by cargo
-
 /target
+
+# Binary output
+/hickory-dns-test-*
