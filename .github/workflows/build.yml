@@ -2,9 +2,9 @@ name: "Build Flake"
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -14,29 +14,33 @@ jobs:
         os: [ubuntu-latest]
         arch: [x86_64]
     runs-on: ${{ matrix.os }}
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      
-      - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v9
-      
-      - name: Setup Nix cache
-        uses: DeterminateSystems/magic-nix-cache-action@v2
-      
+
+      - name: Set up Nix with Garnix substituter
+        uses: cachix/install-nix-action@v22
+        with:
+          extra_nix_config: |
+            substituters = https://cache.garnix.io https://cache.nixos.org
+            trusted-substituters = https://cache.garnix.io https://cache.nixos.org
+            # Replace the key below with the actual public key from Garnix
+            trusted-public-keys = cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
+
       - name: Build flake
         run: nix build
-      
+
       - name: Test binary runs
         run: |
           ./result/bin/hickory-dns-test || true  # Allow DNS resolution to fail in CI
           echo "Checking binary is statically linked"
           ldd ./result/bin/hickory-dns-test || echo "Binary is statically linked!"
-        
+
       - name: Upload binary as artifact
         uses: actions/upload-artifact@v4
         with:
           name: hickory-dns-test-${{ matrix.arch }}
           path: ./result/bin/hickory-dns-test
           retention-days: 7
+
