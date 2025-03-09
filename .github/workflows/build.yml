@@ -37,6 +37,10 @@ jobs:
           echo "Checking binary is statically linked"
           ldd ./result/bin/hickory-dns-test || echo "Binary is statically linked!"
 
+      - name: Run unit tests
+        run: |
+          nix flake check
+
       - name: Upload binary as artifact
         uses: actions/upload-artifact@v4
         with:

@@ -95,6 +95,44 @@
             platforms = platforms.linux;
           };
         };
+
+      # Create a check that runs cargo tests for the given system
+      checkFor =
+        system:
+        let
+          pkgs = import nixpkgs {
+            inherit system;
+            overlays = [ rust-overlay.overlays.default ];
+          };
+          rustStatic = pkgs.rust-bin.stable.latest.default.override {
+            targets = [ "x86_64-unknown-linux-musl" ];
+            extensions = [ "rust-src" ];
+          };
+          staticRustPlatform = pkgs.makeRustPlatform {
+            cargo = rustStatic;
+            rustc = rustStatic;
+          };
+        in
+        staticRustPlatform.buildRustPackage {
+          pname = "hickory-dns-test";
+          version = "0.1.0";
+          src = ./.;
+          cargoLock = {
+            lockFile = ./Cargo.lock;
+          };
+          # We want to run tests rather than build a release binary
+          CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
+          nativeBuildInputs = with pkgs; [
+            pkg-config
+            pkgsStatic.stdenv.cc
+          ];
+          buildPhase = ''
+            cargo test --release --target x86_64-unknown-linux-musl
+          '';
+          # A dummy installPhase is needed
+          installPhase = "mkdir -p $out && touch $out/test";
+          doCheck = true;
+        };
     in
     {
       # Generate packages for all systems
@@ -102,7 +140,9 @@
         default = packageFor system;
       });
 
-      # Default package for backwards compatibility with older Nix versions
-      defaultPackage = forAllSystems (system: self.packages.${system}.default);
+      # Define tests that run with `nix flake check`
+      checks = forAllSystems (system: {
+        hickory-dns-test = checkFor system;
+      });
     };
 }
