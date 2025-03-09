@@ -59,11 +59,12 @@
           CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
 
           # Flags to ensure static linking
-          RUSTFLAGS = "-C target-feature=+crt-static -C link-self-contained=yes -C link-arg=-static";
+          RUSTFLAGS = "-C target-feature=+crt-static -C link-self-contained=yes -C link-arg=-static -C link-arg=-fuse-ld=mold";
 
           # Provide necessary build tools
           nativeBuildInputs = with pkgs; [
             pkg-config
+            mold
             pkgsStatic.stdenv.cc
           ];
 
